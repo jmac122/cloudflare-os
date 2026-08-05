@@ -15,5 +15,7 @@ console.log(
 execFileSync(
   "pnpm",
   ["exec", "vite", "build", "-c", "vite.config.ts", ...(watch ? ["--watch"] : [])],
-  { cwd: pkgDir, stdio: "inherit" },
+  // shell:true on Windows -- pnpm is pnpm.cmd there, not an .exe, so execFileSync("pnpm")
+  // fails with ENOENT.
+  { cwd: pkgDir, stdio: "inherit", shell: process.platform === "win32" },
 );
