@@ -38,6 +38,12 @@ const ATTACHMENT_SUPPORT_BY_PROVIDER = {
   google: isTextImageOrPdfMime,
   cloudflare: isTextOrImageMime,
   ollama: isTextOrImageMime,
+  // No PDFs: bridgePdfAttachments() dispatches on the pi API ("anthropic-messages" /
+  // "openai-responses"), and OpenRouter models are built with "openai-completions", so a PDF
+  // would never be rewritten into a native document part -- it would reach the provider as a
+  // raw image block with an application/pdf mime type and fail. Text and images only, as with
+  // Workers AI. Revisit if the bridge grows an openai-completions case.
+  openrouter: isTextOrImageMime,
 } satisfies Record<AiModelProvider, (mimeType: string) => boolean>;
 
 function sanitizeChatAttachmentMimeType(mimeType: string | undefined): string {

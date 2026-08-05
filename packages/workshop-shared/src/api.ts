@@ -917,7 +917,8 @@ export type CloudflareAccountOption = {
 };
 
 // Supported AI providers.
-export type AiModelProvider = "openai" | "anthropic" | "google" | "cloudflare" | "ollama";
+export type AiModelProvider =
+  "openai" | "anthropic" | "google" | "cloudflare" | "ollama" | "openrouter";
 
 // Information about the AI gateway configuration. Returned by `AuthenticatedApi.getAiConfig()`.
 export type AiGatewayInfo = {
@@ -984,6 +985,45 @@ export const SUGGESTED_MODELS: Record<
     "gemini-3.6-flash": {name: "Gemini 3.6 Flash", contextWindow: 1048576},
   },
   "ollama": {
+  },
+  // Reached through AI Gateway's `openrouter` provider route, so the OpenRouter key lives in
+  // the gateway's Provider Keys (BYOK), never in this Worker.
+  //
+  // EVERYTHING routes through OpenRouter by design -- including Claude, GPT and Gemini, which
+  // this deployment does NOT hold Cloudflare BYOK provider keys for. OpenRouter is the single
+  // aggregator so traces, logs and spend live in one place instead of four vendor consoles.
+  //
+  // These are exactly the models allowed by the Precision OpenRouter workspace guardrail
+  // (Restriction Mode: "Only Allow"), and every id is verified against OpenRouter's live
+  // /api/v1/models. Two entries in that guardrail have no chat-completions slug and therefore
+  // cannot appear here: "Grok Imagine Video 1.5" (video generation) and "Nemotron 3 Embed 1B"
+  // (embeddings) are served by OpenRouter's separate video/embeddings endpoints.
+  //
+  // Keep this list in sync with the guardrail. An id allowed here but blocked there fails at
+  // request time as a provider rejection, not as a config error.
+  "openrouter": {
+    "anthropic/claude-opus-5": {name: "Claude Opus 5", contextWindow: 1000000},
+    "anthropic/claude-sonnet-5": {name: "Claude Sonnet 5", contextWindow: 1000000},
+    "openai/gpt-5.6-luna": {name: "GPT-5.6 Luna", contextWindow: 1050000, outputLimit: 128000},
+    "openai/gpt-5.6-luna-pro": {
+      name: "GPT-5.6 Luna Pro", contextWindow: 1050000, outputLimit: 128000,
+    },
+    "openai/gpt-5.6-terra": {name: "GPT-5.6 Terra", contextWindow: 1050000, outputLimit: 128000},
+    "openai/gpt-5.6-terra-pro": {
+      name: "GPT-5.6 Terra Pro", contextWindow: 1050000, outputLimit: 128000,
+    },
+    "google/gemini-3.6-flash": {name: "Gemini 3.6 Flash", contextWindow: 1048576},
+    "x-ai/grok-4.5": {name: "Grok 4.5", contextWindow: 500000},
+    "z-ai/glm-5.2": {name: "GLM 5.2 (OpenRouter)", contextWindow: 1048576},
+    "moonshotai/kimi-k3": {name: "Kimi K3", contextWindow: 1048576},
+    "deepseek/deepseek-v4-pro": {name: "DeepSeek V4 Pro", contextWindow: 1048576},
+    "deepseek/deepseek-v4-flash-0731": {name: "DeepSeek V4 Flash", contextWindow: 1048576},
+    "minimax/minimax-m3": {name: "MiniMax M3", contextWindow: 1048576},
+    "nvidia/nemotron-3-ultra-550b-a55b:free": {
+      name: "Nemotron 3 Ultra (free)", contextWindow: 1000000,
+    },
+    "meta/muse-spark-1.1": {name: "Muse Spark 1.1", contextWindow: 1048576},
+    "thinkingmachines/inkling": {name: "Inkling", contextWindow: 1048576},
   },
 };
 

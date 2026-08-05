@@ -124,6 +124,9 @@ function catalogModel(provider: AiModelConfig["provider"], modelId: string): Mod
     case "google": return (GOOGLE_MODELS as Record<string, Model<Api>>)[modelId];
     case "cloudflare": return (CLOUDFLARE_WORKERS_AI_MODELS as Record<string, Model<Api>>)[modelId];
     case "ollama": return undefined;
+    // OpenRouter aggregates many vendors' models under its own ids; pi ships no catalog for
+    // them, so cost/compat are synthesized and cost is reported by AI Gateway's logs instead.
+    case "openrouter": return undefined;
     default: return undefined;
   }
 }
@@ -184,6 +187,23 @@ function gatewayNativeModel(config: AiModelConfig, gatewayUrl: string): Model<Ap
         // don't support it (Haiku). Uncataloged model ids get budget-format thinking config --
         // if a new adaptive-only model isn't yet in pi's catalog, bump pi.
         compat: catalog?.compat,
+      };
+    case "openrouter":
+      // OpenRouter speaks OpenAI's *completions* API, not the Responses API -- pi's
+      // openai-responses stream would 404 here. The gateway supplies the provider's own base
+      // path (same convention as the `openai` case below, where `${gatewayUrl}/openai` reaches
+      // api.openai.com/v1), so the SDK's appended /chat/completions lands on
+      // openrouter.ai/api/v1/chat/completions.
+      return {
+        id: config.model,
+        name: catalog?.name ?? config.model,
+        api: "openai-completions",
+        provider: "openai",
+        baseUrl: `${gatewayUrl}/openrouter`,
+        reasoning: catalog?.reasoning ?? true,
+        input: catalog?.input ?? ["text", "image"],
+        cost: catalog?.cost ?? ZERO_COST,
+        ...window,
       };
     case "openai":
       return {
@@ -567,6 +587,25 @@ function getModelDirect(config: AiModelConfig, sessionAffinity?: string): ModelH
         ...(config.apiToken === ""
             ? { apiKey: "unused", headers: { Authorization: null } }
             : { apiKey: config.apiToken }),
+        sessionAffinity,
+      });
+    case "openrouter":
+      // Non-gateway path: talk to OpenRouter directly with a key held in the model config.
+      // Normal operation goes through AI Gateway instead (see gatewayNativeModel), which is
+      // where BYOK, logging and cost accounting live.
+      return makeHandle({
+        model: {
+          id: config.model,
+          name: catalog?.name ?? config.model,
+          api: "openai-completions",
+          provider: "openai",
+          baseUrl: config.apiUrl ?? "https://openrouter.ai/api/v1",
+          reasoning: catalog?.reasoning ?? true,
+          input: catalog?.input ?? ["text", "image"],
+          cost: catalog?.cost ?? ZERO_COST,
+          ...window,
+        },
+        apiKey: config.apiToken,
         sessionAffinity,
       });
     case "openai":
